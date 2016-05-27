@@ -1,35 +1,41 @@
 playState = {
+	//loads everything
 	preload:function() {
 		//images
-		game.load.image("player1", "assets/img/player1.png");
+		this.game.load.image("player", "assets/img/player1.png");
+		this.game.load.image("spritesheet", "assets/img/spritesheet.png");
+
+		//maps
+		this.game.load.tilemap("test_stage", "assets/maps/test_stage.json", null, Phaser.Tilemap.TILED_JSON);
+
+	},
+
+	//creates everything
+	create:function() {
+		this.game.time.desiredFps = 30;
+		this.game.physics.startSystem(Phaser.Physics.ARCADE);
+
+
 
 
 		//maps
-		this.game.load.tilemap('test_stage', 'assets/map/test_stage.json', null, Phaser.Tilemap.TILED_JSON);game.load.image('sprites', 'assets/sprites.png');
-	},
-	//creates everything
-	create:function() {
-		//Players 1 and 2
-		this.player1 = game.add.sprite(this.game.width / 2 - 64, this.game.height / 2, "player1");
-
-		this.game.time.desiredFps = 30;
+		this.teststage = this.game.add.tilemap("test_stage");
+		this.teststage.addTilesetImage("mario", "spritesheet");
+		this.teststage.map = this.teststage.createLayer("map");
+		this.teststage.setCollision(2, true, this.teststage.map);
+		this.teststage.map.resizeWorld();
 
 
+		
+
+		//player
+		this.player = this.game.add.sprite(64, 64, "player");
+		this.game.physics.arcade.enable(this.player);
+		this.game.camera.follow(this.player);
 
 
-		//START OF PHYSICS
-/*		this.game.physics.startSystem(Phaser.Physics.P2JS);
-    	this.game.physics.p2.gravity.y = 100;
-    	this.game.physics.p2.setBoundsToWorld();
-    	this.game.physics.p2.defaultRestitution = 0.8;
 
-    	this.game.physics.p2.enable(this.player1);
 
-    	this.player1.body.friction = 0;
-    	this.player1.body.collideWorldBounds = true;
-		this.player1.body.immovable = true;*/
-
-		//END OF PHYSICS
 
 		//key capturing
 		this.game.input.keyboard.addKeyCapture([
@@ -43,13 +49,31 @@ playState = {
 
 	//main game loop
 	update:function() {
-
+		this.game.physics.arcade.collide(this.player, this.teststage.map);
 		this.keyPress();
 	},
 
 
 	//Updates for Key Presses
 	keyPress:function() {
+		if (this.input.keyboard.isDown(Phaser.Keyboard.UP)) {
+			this.player.body.velocity.y = -150;
 
+		} else if (this.input.keyboard.isDown(Phaser.Keyboard.DOWN)) {
+			this.player.body.velocity.y = 150;
+
+		} else {
+			this.player.body.velocity.y = 0;
+		}
+
+		if (this.input.keyboard.isDown(Phaser.Keyboard.LEFT)) {
+			this.player.body.velocity.x = -150;
+
+		} else if (this.input.keyboard.isDown(Phaser.Keyboard.RIGHT)) {
+			this.player.body.velocity.x = 150;
+
+		} else {
+			this.player.body.velocity.x = 0;
+		}
 	}
 };
