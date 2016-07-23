@@ -4,10 +4,8 @@ playState = {
 		//images
 		this.game.load.image("testplayer", "assets/img/testplayer.png");
 		this.game.load.image("testenemy", "assets/img/testenemy.png");
-		this.game.load.image("spritesheet", "assets/img/spritesheet.png");
-
-
-
+		this.game.load.image("mario_spritesheet", "assets/img/mario_spritesheet.png");
+		this.game.load.image("collision_spritesheet", "assets/img/collision_spritesheet.png");
 
 		//maps
 		this.game.load.tilemap("test_stage", "assets/maps/test_stage.json", null, Phaser.Tilemap.TILED_JSON);
@@ -16,6 +14,8 @@ playState = {
 
 	//creates everything
 	create:function() {
+		isdebug = 0;
+
 		//key capturing
 		this.game.input.keyboard.addKeyCapture([
 			Phaser.Keyboard.UP,
@@ -31,38 +31,79 @@ playState = {
 
 
 
-
 		//maps
-		this.teststage = this.game.add.tilemap("test_stage");
-		this.teststage.addTilesetImage("mario", "spritesheet");
-		this.teststage.map = this.teststage.createLayer("map");
-		this.teststage.setCollision(2, true, this.teststage.map);
-		this.teststage.map.resizeWorld();
+		teststageMap = this.game.add.tilemap("test_stage");
+		teststageMap.addTilesetImage("mario_spritesheet", "mario_spritesheet");
+		teststageMap.addTilesetImage("collision_spritesheet", "collision_spritesheet");
+
+		collisionLayer = teststageMap.createLayer("collision");
+		mapLayer = teststageMap.createLayer("map");
+
+		teststageMap.setCollision(101, true, collisionLayer);
+		mapLayer.resizeWorld();
 
 
-		
-
+	
 		//player
-		this.testplayer = this.game.add.sprite(64, 64, "testplayer");
-		this.game.physics.arcade.enable(this.testplayer);
-		this.game.camera.follow(this.testplayer);
+		testplayer = this.game.add.sprite(64, 64, "testplayer");
+		this.game.physics.arcade.enable(testplayer);
+		this.game.camera.follow(testplayer);
+
+
+		//pathfinding
+		pathfinder = this.game.plugins.add(Phaser.Plugin.PathFinderPlugin);
+		pathfinder.setGrid(teststageMap.layers[1].data, [102]);
+
 
 		//enemies
-		this.testenemy = this.game.add.group();
-		this.game.physics.enable(this.testenemy);
+		testenemy = this.game.add.group();
 
-		var enemies = prompt("How many Enemies to spawn?")
-		this.spawnEnemy(this.teststage, this.teststage.map, enemies);
+		var enemies = prompt("How many Enemies to spawn?");
+		this.spawnEnemy(teststageMap, mapLayer, enemies);
 	},
 
 
 	//main game loop
 	update:function() {
 		//collision
-		this.game.physics.arcade.collide(this.testplayer, this.teststage.map);
-		this.game.physics.arcade.collide(this.testplayer, this.testenemy);
-		this.game.physics.arcade.collide(this.testenemy, this.teststage.map);
+		this.game.physics.arcade.collide(testplayer, collisionLayer);
+		this.game.physics.arcade.collide(testplayer, testenemy);
+		this.game.physics.arcade.collide(testenemy, testenemy);
+		this.game.physics.arcade.collide(testenemy, collisionLayer);
 
+		//enemy actions
+		testenemy.forEach(function(item) {
+
+			//pathfinding portion
+			let tilemap = teststageMap;
+   	 		pathfinder.setCallbackFunction(function(path) {
+        		item.path = path || [];
+
+				goingX = item.path[1].x;
+      			goingY = item.path[1].y;
+
+      			finalX = item.path[item.path.length - 1].x;
+      			finalY = item.path[item.path.length - 1].y;
+
+      			console.log("Going to: " + (goingX * 32) + ", " + (goingY * 32) + "| Final: " + (finalX * 32) + ", " + (finalY * 32));
+      				
+      			console.log(item.x + " " + item.y);
+
+				this.game.physics.arcade.moveToXY(item, goingX * 32, goingY * 32, 75);
+
+      			if ( (item.x >= goingX * 32 - 1 && item.x <= goingX * 32 + 1) && (item.y >= goingY * 32 - 1 && item.y <= goingY * 32 + 1) ) {
+      				item.path.splice(0, 0);
+      			}
+
+
+
+
+    		});
+
+			pathfinder.preparePathCalculation([Math.round(item.x / 32), Math.round(item.y / 32)], [Math.round(testplayer.x / 32), Math.round(testplayer.y / 32)]);
+    		pathfinder.calculatePath();
+
+		}, this);
 		
 		this.keyPress();
 	},
@@ -70,57 +111,114 @@ playState = {
 
 	//updates for Key Presses
 	keyPress:function() {
-		if (this.input.keyboard.isDown(Phaser.Keyboard.UP) || this.input.keyboard.isDown(Phaser.Keyboard.W)) {
-			this.testplayer.body.velocity.y = -150;
-
-		} else if (this.input.keyboard.isDown(Phaser.Keyboard.DOWN) || this.input.keyboard.isDown(Phaser.Keyboard.S)) {
-			this.testplayer.body.velocity.y = 150;
-
-		} else {
-			this.testplayer.body.velocity.y = 0;
-		}
-
+		//going left and right
 		if (this.input.keyboard.isDown(Phaser.Keyboard.LEFT) || this.input.keyboard.isDown(Phaser.Keyboard.A)) {
-			this.testplayer.body.velocity.x = -150;
+			testplayer.body.velocity.x = -150;
+
 
 		} else if (this.input.keyboard.isDown(Phaser.Keyboard.RIGHT) || this.input.keyboard.isDown(Phaser.Keyboard.D)) {
-			this.testplayer.body.velocity.x = 150;
+			testplayer.body.velocity.x = 150;
 
 		} else {
-			this.testplayer.body.velocity.x = 0;
+			testplayer.body.velocity.x = 0;
+		}
+
+
+		//going up and down
+		if (this.input.keyboard.isDown(Phaser.Keyboard.UP) || this.input.keyboard.isDown(Phaser.Keyboard.W)) {
+			testplayer.body.velocity.y = -150;
+
+		} else if (this.input.keyboard.isDown(Phaser.Keyboard.DOWN) || this.input.keyboard.isDown(Phaser.Keyboard.S)) {
+			testplayer.body.velocity.y = 150;
+
+		} else {
+			testplayer.body.velocity.y = 0;
+		}
+
+
+		//debug | NOTE: As of 0.1.0a, this does not work.
+		if (this.input.keyboard.isDown(Phaser.Keyboard.K)) {
+			if (isdebug == 0) {
+				mapIDShow(this, getMapArray(teststageMap, collisionLayer));
+			} else {
+				mapIDHide(this, getMapArray(teststageMap, collisionLayer));
+			}
+
+
+			
 		}
 	},
 
 	//spawns enemies
 	spawnEnemy:function(tilemap, layer, times) {
-		for (var i = 1; i <= times; i++) {
-			var attmpt = 1;
+		for (let i = 1; i <= times; i++) {
+			let attmpt = 1;
 
 			//Enemy Placement
-			var enemyTileX = Math.ceil((Math.random() * Math.ceil(tilemap.width)) - 1);
-			var enemyTileY = Math.ceil((Math.random() * Math.ceil(tilemap.height)) - 1);
-			var enemyX = enemyTileX * 32;
-			var enemyY = enemyTileY * 32;
-			enemyTile = tilemap.getTile(enemyTileX, enemyTileY, layer);
+			let enemyTileX = layer.getTileX(Math.random() * Math.round(tilemap.width));
+			let enemyTileY = layer.getTileY(Math.random() * Math.round(tilemap.height));
+			let enemyX = enemyTileX * 32;
+			let enemyY = enemyTileY * 32;
+			let enemyTile = tilemap.getTile(enemyTileX, enemyTileY, layer);
+
+			//checks if the position is within map bounds
+			if (enemyTileX >= tilemap.width / 32) {
+				enemyTileX--;
+				enemyX -= 32;
+			} else if (enemyTileX <= 0) {
+				enemyTileX++;
+				enemyX += 32;
+			}
+
+			if (enemyTileY >= tilemap.length / 32) {
+				enemyTileY--;
+				enemyY -= 32;
+			} else if (enemyTileY <= 0) {
+				enemyTileY++;
+				enemyY += 32;
+			}
 
 			console.log("Attempt " + attmpt + "|" + "Enemy " + i + " Setting Coordinates at: " + enemyX + ", " + enemyY);
 			console.log("Attempt " + attmpt + "|" + "Enemy " + i + " Setting Tile Coordinates at: " + enemyTileX + ", " + enemyTileY);
 
+
 			//Checks for obstacles
-			while (enemyTile.index == 2) {
+			while (enemyTile.index == 2 || (enemyX == testplayer.x && enemyY == testplayer.y)) {
 				attmpt++;
-				enemyTileX = Math.ceil((Math.random() * Math.ceil(tilemap.width)) - 1);
-				enemyTileY = Math.ceil((Math.random() * Math.ceil(tilemap.height)) - 1);
+				enemyTileX = Math.round((Math.random() * Math.round(tilemap.width)) - 1);
+				enemyTileY = Math.round((Math.random() * Math.round(tilemap.height)) - 1);
 				enemyX = enemyTileX * 32;
 				enemyY = enemyTileY * 32;
 
+				//checks if the position is within map bounds
+				if (enemyTileX >= tilemap.width / 32) {
+					enemyTileX--;
+					enemyX -= 32;
+				} else if (enemyTileX <= 0) {
+					enemyTileX++;
+					enemyX += 32;
+				}
+
+				if (enemyTileY >= tilemap.length / 32) {
+					enemyTileY--;
+					enemyY -= 32;
+				} else if (enemyTileY <= 0) {
+					enemyTileY++;
+					enemyY += 32;
+				}
+
+
 				enemyTile = tilemap.getTile(enemyTileX, enemyTileY, layer);
 
-				console.log("Attempt " + attmpt + "|" + "Enemy " + (i + 1) + " Resetting Coordinates at: " + enemyX + ", " + enemyY);
-				console.log("Attempt " + attmpt + "|" + "Enemy " + (i + 1) + " Resetting Tile Coordinates at: " + enemyTileX + ", " + enemyTileY);
+				console.log("Attempt " + attmpt + "|" + "Enemy " + i + " Resetting Coordinates at: " + enemyX + ", " + enemyY);
+				console.log("Attempt " + attmpt + "|" + "Enemy " + i + " Resetting Tile Coordinates at: " + enemyTileX + ", " + enemyTileY);
 			}
 
-			var enemy = this.testenemy.create(enemyX, enemyY, "testenemy");
+			//creates the enemy
+			enemy = testenemy.create(enemyX, enemyY, "testenemy");
+			this.game.physics.arcade.enable(enemy);
+			enemy.body.immovable = true;
+			enemy.number = i;
 		};
 	}
 };
